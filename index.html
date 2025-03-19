@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV File Browser</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+        #fileInput { margin-bottom: 10px; }
+        #dropdownContainer, #gradeButton, #studentContainer { display: none; }
+        #studentListContainer { max-height: 300px; overflow-y: auto; text-align: center; max-width: 400px; margin: auto; border: 1px solid #ccc; padding: 10px; border-radius: 5px; display: flex; flex-direction: column; align-items: center; }
+        .student-button { display: block; width: 100%; padding: 10px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 5px; text-align: center; }
+        .student-button:hover { background: #0056b3; }
+        #textInput { margin-bottom: 20px; width: 100%; padding: 10px; }
+        #selectedStudents { margin-top: 20px; font-weight: bold; }
+        #backButton { margin-top: 20px; padding: 10px; background: #dc3545; color: white; border: none; cursor: pointer; border-radius: 5px; }
+        #backButton:hover { background: #a71d2a; }
+        ul { list-style-type: none; padding: 0; }
+        li { text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div id="uploadSection">
+        <input type="file" id="fileInput" accept=".csv">
+        <div id="dropdownContainer">
+            <label for="dropdown">Select an option:</label>
+            <select id="dropdown"></select>
+        </div>
+        <button id="gradeButton">Grade</button>
+    </div>
+
+    <div id="studentContainer">
+        <button id="backButton">Back</button>
+        <input type="text" id="textInput" placeholder="Enter text here">
+        <h1>Student List</h1>
+        <div id="studentListContainer">
+            <ul id="studentList"></ul>
+        </div>
+        <h2>Selected Students</h2>
+        <ul id="selectedStudents"></ul>
+    </div>
+
+    <script>
+        function levenshteinDistance(str1, str2) {
+            const len1 = str1.length, len2 = str2.length;
+            let matrix = Array.from({ length: len1 + 1 }, () => Array(len2 + 1).fill(0));
+
+            for (let i = 0; i <= len1; i++) matrix[i][0] = i;
+            for (let j = 0; j <= len2; j++) matrix[0][j] = j;
+
+            for (let i = 1; i <= len1; i++) {
+                for (let j = 1; j <= len2; j++) {
+                    let cost = str1[i - 1] === str2[j - 1] ? 0 : 1;
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j] + 1,       
+                        matrix[i][j - 1] + 1,       
+                        matrix[i - 1][j - 1] + cost 
+                    );
+                }
+            }
+
+            return matrix[len1][len2];
+        }
+
+        function getCloseMatches(inputStr, names, cutoff = 0.6) {
+            if (!inputStr) return [];
+
+            let matches = names.map(name => {
+            let [firstName, lastName] = name.split(' ').map(n => n.trim());
+            let inputLen = inputStr.length;
+
+            firstName = firstName.slice(0, inputLen);
+            lastName = lastName.slice(0, inputLen);
+            fullName = `${firstName} ${lastName}`.slice(0, inputLen);
+
+            let scoreFirst = 1 - (levenshteinDistance(inputStr.toLowerCase(), firstName.toLowerCase()) / inputLen);
+            let scoreLast = 1 - (levenshteinDistance(inputStr.toLowerCase(), lastName.toLowerCase()) / inputLen);
+            let scoreFull = 1 - (levenshteinDistance(inputStr.toLowerCase(), fullName.toLowerCase()) / inputLen);
+            let maxScore = Math.max(scoreFirst, scoreLast, scoreFull);
+
+            return { name, score: maxScore };
+            });
+
+            return matches.filter(match => match.score >= cutoff).sort((a, b) => b.score - a.score);
+        }
+
+        let studentNames = [];
+        let originalCSV = "";
+        let firstRow = [];
+        let rows = [];
+        let selectedFile;
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            selectedFile = event.target.files[0];
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                rows = e.target.result.split("\n").map(row => {
+                    const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+                    return row.split(regex).map(cell => cell.replace(/^"|"$/g, ''));
+                });
+                originalCSV = e.target.result;
+                if (rows.length < 2) {
+                    alert("CSV does not contain enough rows.");
+                    return;
+                }
+
+                firstRow = rows[0]; 
+                const dropdown = document.getElementById("dropdown");
+                dropdown.innerHTML = ""; 
+
+                firstRow.forEach(value => {
+                    const option = document.createElement("option");
+                    option.textContent = value.trim();
+                    option.value = value.trim();
+                    dropdown.appendChild(option);
+                });
+
+                studentNames = rows.slice(1).map(row => {
+                    const fullName = row[0] ? row[0].trim() : "";
+                    return fullName ? fullName : null;
+                }).filter(name => name);
+
+                document.getElementById("dropdownContainer").style.display = "block";
+                document.getElementById("gradeButton").style.display = "block";
+            };
+            reader.readAsText(file);
+        });
+
+        function updateStudentList() {
+            const input = document.getElementById("textInput").value.trim();
+            const studentList = document.getElementById("studentList");
+            studentList.innerHTML = ""; 
+
+            if (input === "") {
+                studentNames.forEach(name => {
+                const button = document.createElement("button");
+                button.textContent = name;
+                button.className = "student-button";
+                button.style.textAlign = "center";
+                button.onclick = function() { addToSelected(name); };
+                studentList.appendChild(button);
+                });
+            } else {
+                const matches = getCloseMatches(input, studentNames);
+                matches.forEach(match => {
+                const button = document.createElement("button");
+                button.textContent = match.name;
+                button.className = "student-button";
+                button.style.textAlign = "center";
+                button.onclick = function() { addToSelected(match.name); };
+                studentList.appendChild(button);
+                });
+            }
+        }
+
+        document.getElementById("gradeButton").addEventListener("click", function() {
+            document.getElementById("uploadSection").style.display = "none";
+            document.getElementById("studentContainer").style.display = "block";
+
+            const textInput = document.getElementById("textInput");
+            textInput.focus();
+
+            textInput.addEventListener("input", updateStudentList);
+
+            const studentList = document.getElementById("studentList");
+            studentList.innerHTML = "";
+            studentNames.forEach(name => {
+            const button = document.createElement("button");
+            button.textContent = name;
+            button.className = "student-button";
+            button.style.textAlign = "center";
+            button.onclick = function() { addToSelected(name); };
+            studentList.appendChild(button);
+            });
+        });
+
+        function addToSelected(name) {
+            const selectedList = document.getElementById("selectedStudents");
+            const existingItems = Array.from(selectedList.children).map(item => item.textContent);
+            if (!existingItems.includes(name)) {
+                const listItem = document.createElement("li");
+                listItem.textContent = name;
+                const gradeInput = document.createElement("input");
+                gradeInput.type = "text";
+                gradeInput.placeholder = `Enter ${name}'s grade`;
+                gradeInput.onblur = function() {
+                    if (gradeInput.value.trim() !== "") {
+                        listItem.textContent = `${name} - Grade: ${gradeInput.value.trim()}`;
+                        saveGradeToCSV(name, gradeInput.value.trim());
+                    }
+                };
+                gradeInput.onkeydown = function(event) {
+                    if (event.key === "Enter") {
+                        if (gradeInput.value.trim() !== "") {
+                            listItem.textContent = `${name} - Grade: ${gradeInput.value.trim()}`;
+                            saveGradeToCSV(name, gradeInput.value.trim());
+                            gradeInput.blur();
+                        }
+                    }
+                };
+                listItem.appendChild(gradeInput);
+                selectedList.appendChild(listItem);
+                gradeInput.focus();
+            }
+        }
+
+        document.getElementById("backButton").addEventListener("click", function() {
+            document.getElementById("uploadSection").style.display = "block";
+            document.getElementById("studentContainer").style.display = "none";
+        });
+
+        document.getElementById("textInput").addEventListener("keydown", function(event) {
+            if (event.key === "Enter") {
+            const input = document.getElementById("textInput").value.trim();
+            if (input === "") {
+                if (studentNames.length > 0) {
+                addToSelected(studentNames[0]);
+                }
+            } else {
+                const matches = getCloseMatches(input, studentNames);
+                if (matches.length > 0) {
+                addToSelected(matches[0].name);
+                }
+            }
+            document.getElementById("textInput").value = "";
+            updateStudentList();
+            }
+        });
+
+        function saveGradeToCSV(name, grade) {
+            const rows = originalCSV.split("\n").map(row => {
+                const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
+                return row.split(regex).map(cell => cell.replace(/^"|"$/g, ''));
+            });
+            const selectedOption = document.getElementById("dropdown").value;
+            const selectedOptionIndex = rows[0].indexOf(selectedOption);
+
+            rows.forEach(row => {
+                const studentName = (row[0] || "").trim();
+                if (studentName === name) {
+                    row[selectedOptionIndex] = grade;
+                    console.log(row);
+                }
+            });
+
+            const csvContent = rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n");
+
+            console.log(`Saving grade for ${name}: ${grade}`);
+            document.getElementById("textInput").focus(); // Set the cursor back to the name search text entry
+            console.log(csvContent);
+
+            originalCSV = csvContent; // Update the originalCSV with the new content
+        }
+
+        const downloadButton = document.createElement("button");
+        downloadButton.textContent = "Download CSV";
+        downloadButton.id = "downloadButton";
+        downloadButton.style.marginTop = "20px";
+        downloadButton.style.padding = "10px";
+        downloadButton.style.background = "#28a745";
+        downloadButton.style.color = "white";
+        downloadButton.style.border = "none";
+        downloadButton.style.cursor = "pointer";
+        downloadButton.style.borderRadius = "5px";
+        downloadButton.style.display = "none";
+        document.body.appendChild(downloadButton);
+
+        downloadButton.addEventListener("click", function() {
+            const csvContent = [firstRow.join(",")].concat(
+            rows.slice(1).map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(","))
+            ).join("\n");
+            console.log(originalCSV);
+            const blob = new Blob([originalCSV], { type: "text/csv" });
+            const a = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            a.download = selectedFile.name.replace(".csv", "") + "_graded.csv";
+            a.href = url;
+            a.download = selectedFile.name.replace(".csv", "") + "_graded.csv";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        document.getElementById("gradeButton").addEventListener("click", function() {
+            document.getElementById("downloadButton").style.display = "block";
+        });
+    </script>
+
+</body>
+</html>
