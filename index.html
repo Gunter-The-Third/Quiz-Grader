@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CSV File Browser</title>
+    <title>Quiz Grader</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
         #fileInput { margin-bottom: 10px; }
@@ -120,7 +120,9 @@
 
                 studentNames = rows.slice(1).map(row => {
                     const fullName = row[0] ? row[0].trim() : "";
-                    return fullName ? fullName : null;
+                    const fan = row[2] ? row[2].trim() : "";
+                    const fullNameWithFan = fullName ? `${fullName} (${fan})` : "";
+                    return fullNameWithFan ? fullNameWithFan : null;
                 }).filter(name => name);
 
                 document.getElementById("dropdownContainer").style.display = "block";
