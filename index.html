@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz Grader</title>
+    <title>CSV File Browser</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
         #fileInput { margin-bottom: 10px; }
@@ -17,7 +17,6 @@
         #backButton:hover { background: #a71d2a; }
         ul { list-style-type: none; padding: 0; }
         li { text-align: center; }
-        #loadingGif { margin-top: 20px; }
     </style>
 </head>
 <body>
@@ -29,7 +28,7 @@
             <select id="dropdown"></select>
         </div>
         <button id="gradeButton">Grade</button>
-        <img id="loadingGif" src="giphy.gif" alt="Loading GIF">
+        <img src="giphy.gif" alt="Loading GIF" id="loadingGif" style="display: none; margin-top: 20px;">
     </div>
 
     <div id="studentContainer">
@@ -69,19 +68,19 @@
             if (!inputStr) return [];
 
             let matches = names.map(name => {
-            let [firstName, lastName] = name.split(' ').map(n => n.trim());
-            let inputLen = inputStr.length;
+                let [firstName, lastName] = name.split(' ').map(n => n.trim());
+                let inputLen = inputStr.length;
 
-            firstName = firstName.slice(0, inputLen);
-            lastName = lastName.slice(0, inputLen);
-            fullName = `${firstName} ${lastName}`.slice(0, inputLen);
+                firstName = firstName.slice(0, inputLen);
+                lastName = lastName.slice(0, inputLen);
+                fullName = `${firstName} ${lastName}`.slice(0, inputLen);
 
-            let scoreFirst = 1 - (levenshteinDistance(inputStr.toLowerCase(), firstName.toLowerCase()) / inputLen);
-            let scoreLast = 1 - (levenshteinDistance(inputStr.toLowerCase(), lastName.toLowerCase()) / inputLen);
-            let scoreFull = 1 - (levenshteinDistance(inputStr.toLowerCase(), fullName.toLowerCase()) / inputLen);
-            let maxScore = Math.max(scoreFirst, scoreLast, scoreFull);
+                let scoreFirst = 1 - (levenshteinDistance(inputStr.toLowerCase(), firstName.toLowerCase()) / inputLen);
+                let scoreLast = 1 - (levenshteinDistance(inputStr.toLowerCase(), lastName.toLowerCase()) / inputLen);
+                let scoreFull = 1 - (levenshteinDistance(inputStr.toLowerCase(), fullName.toLowerCase()) / inputLen);
+                let maxScore = Math.max(scoreFirst, scoreLast, scoreFull);
 
-            return { name, score: maxScore };
+                return { name, score: maxScore };
             });
 
             return matches.filter(match => match.score >= cutoff).sort((a, b) => b.score - a.score);
@@ -122,13 +121,12 @@
 
                 studentNames = rows.slice(1).map(row => {
                     const fullName = row[0] ? row[0].trim() : "";
-                    const fan = row[2] ? row[2].trim() : "";
-                    const fullNameWithFan = fullName ? `${fullName} (${fan})` : "";
-                    return fullNameWithFan ? fullNameWithFan : null;
+                    return fullName ? fullName : null;
                 }).filter(name => name);
 
                 document.getElementById("dropdownContainer").style.display = "block";
                 document.getElementById("gradeButton").style.display = "block";
+                document.getElementById("loadingGif").style.display = "block";
             };
             reader.readAsText(file);
         });
@@ -140,22 +138,22 @@
 
             if (input === "") {
                 studentNames.forEach(name => {
-                const button = document.createElement("button");
-                button.textContent = name;
-                button.className = "student-button";
-                button.style.textAlign = "center";
-                button.onclick = function() { addToSelected(name); };
-                studentList.appendChild(button);
+                    const button = document.createElement("button");
+                    button.textContent = name;
+                    button.className = "student-button";
+                    button.style.textAlign = "center";
+                    button.onclick = function() { addToSelected(name); };
+                    studentList.appendChild(button);
                 });
             } else {
                 const matches = getCloseMatches(input, studentNames);
                 matches.forEach(match => {
-                const button = document.createElement("button");
-                button.textContent = match.name;
-                button.className = "student-button";
-                button.style.textAlign = "center";
-                button.onclick = function() { addToSelected(match.name); };
-                studentList.appendChild(button);
+                    const button = document.createElement("button");
+                    button.textContent = match.name;
+                    button.className = "student-button";
+                    button.style.textAlign = "center";
+                    button.onclick = function() { addToSelected(match.name); };
+                    studentList.appendChild(button);
                 });
             }
         }
@@ -172,12 +170,12 @@
             const studentList = document.getElementById("studentList");
             studentList.innerHTML = "";
             studentNames.forEach(name => {
-            const button = document.createElement("button");
-            button.textContent = name;
-            button.className = "student-button";
-            button.style.textAlign = "center";
-            button.onclick = function() { addToSelected(name); };
-            studentList.appendChild(button);
+                const button = document.createElement("button");
+                button.textContent = name;
+                button.className = "student-button";
+                button.style.textAlign = "center";
+                button.onclick = function() { addToSelected(name); };
+                studentList.appendChild(button);
             });
         });
 
@@ -218,35 +216,30 @@
 
         document.getElementById("textInput").addEventListener("keydown", function(event) {
             if (event.key === "Enter") {
-            const input = document.getElementById("textInput").value.trim();
-            if (input === "") {
-                if (studentNames.length > 0) {
-                addToSelected(studentNames[0]);
+                const input = document.getElementById("textInput").value.trim();
+                if (input === "") {
+                    if (studentNames.length > 0) {
+                        addToSelected(studentNames[0]);
+                    }
+                } else {
+                    const matches = getCloseMatches(input, studentNames);
+                    if (matches.length > 0) {
+                        addToSelected(matches[0].name);
+                    }
                 }
-            } else {
-                const matches = getCloseMatches(input, studentNames);
-                if (matches.length > 0) {
-                addToSelected(matches[0].name);
-                }
-            }
-            document.getElementById("textInput").value = "";
-            updateStudentList();
+                document.getElementById("textInput").value = "";
+                updateStudentList();
             }
         });
 
         function saveGradeToCSV(name, grade) {
-            const rows = originalCSV.split("\n").map(row => {
-                const regex = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/;
-                return row.split(regex).map(cell => cell.replace(/^"|"$/g, ''));
-            });
             const selectedOption = document.getElementById("dropdown").value;
-            const selectedOptionIndex = rows[0].indexOf(selectedOption);
+            const selectedOptionIndex = firstRow.indexOf(selectedOption);
 
             rows.forEach(row => {
                 const studentName = (row[0] || "").trim();
                 if (studentName === name) {
                     row[selectedOptionIndex] = grade;
-                    console.log(row);
                 }
             });
 
@@ -274,7 +267,7 @@
 
         downloadButton.addEventListener("click", function() {
             const csvContent = [firstRow.join(",")].concat(
-            rows.slice(1).map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(","))
+                rows.slice(1).map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(","))
             ).join("\n");
             console.log(originalCSV);
             const blob = new Blob([originalCSV], { type: "text/csv" });
