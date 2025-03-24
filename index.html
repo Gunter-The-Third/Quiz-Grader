@@ -17,6 +17,7 @@
         #backButton:hover { background: #a71d2a; }
         ul { list-style-type: none; padding: 0; }
         li { text-align: center; }
+        #gradedCounter { margin-top: 20px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -40,6 +41,7 @@
         </div>
         <h2>Selected Students</h2>
         <ul id="selectedStudents"></ul>
+        <div id="gradedCounter">Quizzes Graded: 0</div>
     </div>
 
     <script>
@@ -91,6 +93,8 @@
         let firstRow = [];
         let rows = [];
         let selectedFile;
+        let gradedCount = 0;
+
         document.getElementById('fileInput').addEventListener('change', function(event) {
             selectedFile = event.target.files[0];
             const file = event.target.files[0];
@@ -250,6 +254,10 @@
             console.log(csvContent);
 
             originalCSV = csvContent; // Update the originalCSV with the new content
+
+            // Increment the graded count and update the display
+            gradedCount++;
+            document.getElementById("gradedCounter").textContent = `Quizzes Graded: ${gradedCount}`;
         }
 
         const downloadButton = document.createElement("button");
